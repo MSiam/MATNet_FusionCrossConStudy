@@ -283,7 +283,8 @@ def trainIters(args):
         if args.wandb_run_name != '':
             wandb.log({'Ave Val mIoU': miou})
 
-        if miou > best_iou:
+        eps = 0.5
+        if (miou - best_iou) > eps:
             best_iou = miou
             save_checkpoint_epoch(args, model,
                                   enc_opt, dec_opt, e, True)

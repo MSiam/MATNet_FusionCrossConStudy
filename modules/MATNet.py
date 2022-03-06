@@ -7,6 +7,8 @@ import copy
 from modules.r2plus1d import r2plus1d_34
 import numpy as np
 from modules.netwarp import NetWarp
+from modules.fusions import GatedConvex, Gated
+from modules.cross_connections import CoAttentionGated, CoAttentionRecip, CoAttentionGatedRecip, CoAttention
 
 class Encoder(nn.Module):
     def __init__(self, args):
@@ -14,6 +16,38 @@ class Encoder(nn.Module):
 
         self.frame_nb = args.frame_nb
         self.center = args.center
+
+        self.masking_cfg = args.masking_cfg
+
+        ######### cross connection types:
+        ######### coatt, coatt_gated, coatt_gated_recip, coat_recip, coatt_sum
+        if hasattr(args, 'cc_type'):
+            self.cc_type = args.cc_type
+        else:
+            self.cc_type = 'coatt'
+
+        ######## fusion types
+        ######## gated, convex gated
+        if hasattr(args, 'fusion_type'):
+            self.fusion_type = args.fusion_type
+        else:
+            self.fusion_type = 'gated'
+
+        ######## Normalization Fns
+        ######## tanh, softmax
+        if hasattr(args, 'norm_fn'):
+            norm_fn = args.norm_fn
+        else:
+            norm_fn = 'tanh'
+        print("===> Using Normalization as ", norm_fn)
+
+        ######### Extra Properties
+        self.use_spatial_conv = False
+        if hasattr(args, 'use_spatial_conv'):
+            self.use_spatial_conv = args.use_spatial_conv
+        self.use_global = True
+        if hasattr(args, 'use_global'):
+            self.use_global = args.use_global
 
         resnet_im = models.resnet101(pretrained=True)
         self.conv1_1 = resnet_im.conv1
@@ -37,23 +71,63 @@ class Encoder(nn.Module):
         self.res4_2 = resnet_fl.layer3
         self.res5_2 = resnet_fl.layer4
 
-        self.gated_res2 = Gated(256*2)
-        self.gated_res3 = Gated(512*2)
-        self.gated_res4 = Gated(1024*2)
-        self.gated_res5 = Gated(2048*2)
+        kwargs = {}
+        if self.fusion_type == 'gated':
+            FusionCls = Gated
+            kwargs = {'use_global': self.use_global}
+        elif self.fusion_type == 'convex_gated':
+            FusionCls = GatedConvex
+            kwargs = {'use_spatial_conv': self.use_spatial_conv}
 
-        self.coa_res3 = CoAttention(channel=512)
-        self.coa_res4 = CoAttention(channel=1024)
-        self.coa_res5 = CoAttention(channel=2048)
+        self.gated_res2 = FusionCls(256*2, **kwargs)
+        self.gated_res3 = FusionCls(512*2, **kwargs)
+        self.gated_res4 = FusionCls(1024*2, **kwargs)
+        self.gated_res5 = FusionCls(2048*2, **kwargs)
+
+        if self.cc_type == 'coatt_gated':
+            CrossConCls = CoAttentionGated
+        elif self.cc_type == 'coatt_gated_recip':
+            CrossConCls = CoAttentionGatedRecip
+        elif self.cc_type == 'coatt_recip':
+            CrossConCls = CoAttentionRecip
+        else:
+            CrossConCls = CoAttention
+
+        self.coa_res3 = CrossConCls(channel=512, normalization_fn=norm_fn)
+        self.coa_res4 = CrossConCls(channel=1024, normalization_fn=norm_fn)
+        self.coa_res5 = CrossConCls(channel=2048, normalization_fn=norm_fn)
+
+    def update_masked(self, app, mot, fusion, current_stage):
+        stage, stream = self.masking_cfg['layer'].split(',')
+        indices = self.masking_cfg['indices']
+        if stage == current_stage:
+            if stream == 'app_stream' and app is not None:
+                app[:,indices] = 0
+            elif stream == 'mot_stream' and mot is not None:
+                mot[:,indices] = 0
+                return app, mot
+            elif stream == 'sensor_fusion' and fusion is not None:
+                fusion[:,indices] = 0
+
+        if fusion is not None:
+            return fusion
+        else:
+            return app, mot
 
     def forward_res2(self, f1, f2):
         x1 = self.conv1_1(f1)
+        if len(self.masking_cfg) != 0:
+            x1, _ = self.update_masked(x1, None, None, current_stage='conv1')
+
         x1 = self.bn1_1(x1)
         x1 = self.relu_1(x1)
         x1 = self.maxpool_1(x1)
         r2_1 = self.res2_1(x1)
 
         x2 = self.conv1_2(f2)
+        if len(self.masking_cfg) != 0:
+            _, x2 = self.update_masked(None, x2, None, current_stage='conv1')
+
         x2 = self.bn1_2(x2)
         x2 = self.relu_2(x2)
         x2 = self.maxpool_2(x2)
@@ -63,42 +137,95 @@ class Encoder(nn.Module):
 
     def forward(self, f1, f2):
         r2_1, r2_2 = self.forward_res2(f1, f2)
-
-        r2 = torch.cat([r2_1, r2_2], dim=1)
+        if len(self.masking_cfg) != 0:
+            r2_1, r2_2 = self.update_masked(r2_1, r2_2, None, current_stage='layer1')
 
         # res3
         r3_1 = self.res3_1(r2_1)
         r3_2 = self.res3_2(r2_2)
 
-        Za, Zb, Qa, Qb = self.coa_res3(r3_1, r3_2)
-        r3_1 = F.relu(Zb + r3_1)
-        r3_2 = F.relu(Qb + r3_2)
-        r3 = torch.cat([r3_1, r3_2], dim=1)
-
         # res4
+        if self.cc_type == 'coatt_add':
+            _, Zb, _, Qb = self.coa_res3(r3_1, r3_2)
+            r3_1 = F.relu(Zb + r3_1 + r3_2)
+            r3_2 = F.relu(Qb + r3_2)
+        elif self.cc_type in ['coatt', 'coatt_gated']:
+            _, Zb, _, Qb = self.coa_res3(r3_1, r3_2)
+            r3_1 = F.relu(Zb + r3_1)
+            r3_2 = F.relu(Qb + r3_2)
+        elif self.cc_type in ['coatt_recip', 'coatt_gated_recip']:
+            Za, Zb, Qa, Qb = self.coa_res3(r3_1, r3_2)
+            r3_1 = F.relu(Zb + r3_1)
+            r3_2 = F.relu(Za + r3_2)
+        else:
+            raise NotImplementedError()
+        if len(self.masking_cfg) != 0:
+            r3_1, r3_2 = self.update_masked(r3_1, r3_2, None, current_stage='layer2')
+
         r4_1 = self.res4_1(r3_1)
         r4_2 = self.res4_2(r3_2)
 
-        Za, Zb, Qa, Qb = self.coa_res4(r4_1, r4_2)
-        r4_1 = F.relu(Zb + r4_1)
-
-        r4_2 = F.relu(Qb + r4_2)
-        r4 = torch.cat([r4_1, r4_2], dim=1)
-
         # res5
+        if self.cc_type == 'coatt_add':
+            _, Zb, _, Qb = self.coa_res4(r4_1, r4_2)
+            r4_1 = F.relu(Zb + r4_1 + r4_2)
+            r4_2 = F.relu(Qb + r4_2)
+        elif self.cc_type in ['coatt', 'coatt_gated']:
+            _, Zb, _, Qb = self.coa_res4(r4_1, r4_2)
+            r4_1 = F.relu(Zb + r4_1)
+            r4_2 = F.relu(Qb + r4_2)
+        elif self.cc_type in ['coatt_recip', 'coatt_gated_recip']:
+            Za, Zb, Qa, Qb = self.coa_res4(r4_1, r4_2)
+            r4_1 = F.relu(Zb + r4_1)
+            r4_2 = F.relu(Za + r4_2)
+        else:
+            raise NotImplementedError()
+        if len(self.masking_cfg) != 0:
+            r4_1, r4_2 = self.update_masked(r4_1, r4_2, None, current_stage='layer3')
+
         r5_1 = self.res5_1(r4_1)
         r5_2 = self.res5_2(r4_2)
 
-        Za, Zb, Qa, Qb = self.coa_res5(r5_1, r5_2)
-        r5_1 = F.relu(Zb + r5_1)
+        if self.cc_type == 'coatt_add':
+            _, Zb, _, Qb = self.coa_res5(r5_1, r5_2)
+            r5_1 = F.relu(Zb + r5_1 + r5_2)
+            r5_2 = F.relu(Qb + r5_2)
+        elif self.cc_type in ['coatt', 'coatt_gated']:
+            _, Zb, _, Qb = self.coa_res5(r5_1, r5_2)
+            r5_1 = F.relu(Zb + r5_1)
+            r5_2 = F.relu(Qb + r5_2)
+        elif self.cc_type in ['coatt_recip', 'coatt_gated_recip']:
+            Za, Zb, Qa, Qb = self.coa_res5(r5_1, r5_2)
+            r5_1 = F.relu(Zb + r5_1)
+            r5_2 = F.relu(Za + r5_2)
+        else:
+            raise NotImplementedError()
+        if len(self.masking_cfg) != 0:
+            r5_1, r5_2 = self.update_masked(r5_1, r5_2, None, current_stage='layer4')
 
-        r5_2 = F.relu(Qb + r5_2)
-        r5 = torch.cat([r5_1, r5_2], dim=1)
+        if self.fusion_type == 'convex_gated':
+            r5_gated = self.gated_res5(r5_1, r5_2)
+            r4_gated = self.gated_res4(r4_1, r4_2)
+            r3_gated = self.gated_res3(r3_1, r3_2)
+            r2_gated = self.gated_res2(r2_1, r2_2)
+        elif self.fusion_type == 'gated':
+            r2 = torch.cat([r2_1, r2_2], dim=1)
+            r3 = torch.cat([r3_1, r3_2], dim=1)
+            r4 = torch.cat([r4_1, r4_2], dim=1)
+            r5 = torch.cat([r5_1, r5_2], dim=1)
 
-        r5_gated = self.gated_res5(r5)
-        r4_gated = self.gated_res4(r4)
-        r3_gated = self.gated_res3(r3)
-        r2_gated = self.gated_res2(r2)
+            r5_gated = self.gated_res5(r5)
+            r4_gated = self.gated_res4(r4)
+            r3_gated = self.gated_res3(r3)
+            r2_gated = self.gated_res2(r2)
+        else:
+            raise NotImplementedError()
+        if len(self.masking_cfg) != 0:
+            r5_gated = self.update_masked(None, None, r5_gated, current_stage='layer4')
+            r4_gated = self.update_masked(None, None, r4_gated, current_stage='layer3')
+            r3_gated = self.update_masked(None, None, r3_gated, current_stage='layer2')
+            r2_gated = self.update_masked(None, None, r2_gated, current_stage='layer1')
+
         return r5_gated, r4_gated, r3_gated, r2_gated
 
 class MATNet(nn.Module):
@@ -113,187 +240,6 @@ class MATNet(nn.Module):
         r5, r4, r3, r2 = self.encoder(image, flow)
         mask_pred, p1, p2, p3, p4, p5 = self.decoder(r5, r4, r3, r2)
         return mask_pred, p1, p2, p3, p4, p5
-
-
-class CoAttention(nn.Module):
-    def __init__(self, channel):
-        super(CoAttention, self).__init__()
-
-        d = channel // 16
-        self.proja = nn.Conv2d(channel, d, kernel_size=1)
-        self.projb = nn.Conv2d(channel, d, kernel_size=1)
-
-        self.bottolneck1 = nn.Sequential(
-                nn.Conv2d(channel, channel, kernel_size=1),
-                nn.BatchNorm2d(channel),
-                nn.ReLU(inplace=True),
-                )
-
-        self.bottolneck2 = nn.Sequential(
-                nn.Conv2d(channel, channel, kernel_size=1),
-                nn.BatchNorm2d(channel),
-                nn.ReLU(inplace=True),
-                )
-
-        self.proj1 = nn.Conv2d(channel, 1, kernel_size=1)
-        self.proj2 = nn.Conv2d(channel, 1, kernel_size=1)
-
-        self.bna = nn.BatchNorm2d(channel)
-        self.bnb = nn.BatchNorm2d(channel)
-        self.relu = nn.ReLU(inplace=True)
-
-    def forward(self, Qa, Qb):
-        # cascade 1
-        Qa_1, Qb_1 = self.forward_sa(Qa, Qb)
-        _, Zb = self.forward_co(Qa_1, Qb_1)
-
-        Pa = F.relu(Zb + Qa)
-        Pb = F.relu(Qb_1 + Qb)
-
-        # cascade 2
-        Qa_2, Qb_2 = self.forward_sa(Pa, Pb)
-        _, Zb = self.forward_co(Qa_2, Qb_2)
-
-        Pa = F.relu(Zb + Pa)
-        Pb = F.relu(Qb_2 + Pb)
-
-        # cascade 3
-        Qa_3, Qb_3 = self.forward_sa(Pa, Pb)
-        Za, Zb = self.forward_co(Qa_3, Qb_3)
-
-        Pa = F.relu(Zb + Pa)
-        Pb = F.relu(Qb_3 + Pb)
-
-        # cascade 4
-        Qa_4, Qb_4 = self.forward_sa(Pa, Pb)
-        Za, Zb = self.forward_co(Qa_4, Qb_4)
-
-        Pa = F.relu(Zb + Pa)
-        Pb = F.relu(Qb_4 + Pb)
-
-        # cascade 5
-        Qa_5, Qb_5 = self.forward_sa(Pa, Pb)
-        Za, Zb = self.forward_co(Qa_5, Qb_5)
-
-        return Za, Zb, Qa_5, Qb_5
-
-    def forward_sa(self, Qa, Qb):
-        Aa = self.proj1(Qa)
-        Ab = self.proj2(Qb)
-
-        n, c, h, w = Aa.shape
-        Aa = Aa.view(-1, h*w)
-        Ab = Ab.view(-1, h*w)
-
-        Aa = F.softmax(Aa)
-        Ab = F.softmax(Ab)
-
-        Aa = Aa.view(n, c, h, w)
-        Ab = Ab.view(n, c, h, w)
-
-        Qa_attened = Aa * Qa
-        Qb_attened = Ab * Qb
-
-        return Qa_attened, Qb_attened
-
-    def forward_co(self, Qa, Qb):
-        Qa_low = self.proja(Qa)
-        Qb_low = self.projb(Qb)
-
-        N, C, H, W = Qa_low.shape
-        Qa_low = Qa_low.view(N, C, H * W)
-        Qb_low = Qb_low.view(N, C, H * W)
-        Qb_low = torch.transpose(Qb_low, 1, 2)
-
-        L = torch.bmm(Qb_low, Qa_low)
-
-        Aa = F.tanh(L)
-        Ab = torch.transpose(Aa, 1, 2)
-
-        N, C, H, W = Qa.shape
-
-        Qa_ = Qa.view(N, C, H * W)
-        Qb_ = Qb.view(N, C, H * W)
-
-        Za = torch.bmm(Qb_, Aa)
-        Zb = torch.bmm(Qa_, Ab)
-        Za = Za.view(N, C, H, W)
-        Zb = Zb.view(N, C, H, W)
-
-        Za = F.normalize(Za)
-        Zb = F.normalize(Zb)
-
-        return Za, Zb
-
-
-class Gated(nn.Module):
-    def __init__(self, channel, reduction=16):
-        super(Gated, self).__init__()
-
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)
-
-        self.excitation_1 = nn.Sequential(
-            nn.Linear(channel, channel // reduction),
-            nn.ReLU(inplace=True))
-
-        self.excitation_2 = nn.Sequential(
-            nn.Linear(channel // reduction, channel),
-            nn.Sigmoid()
-        )
-
-        self.global_attention = nn.Sequential(
-            nn.Linear(channel // reduction, 1),
-            nn.Sigmoid()
-        )
-
-        kernel_size = 7
-        self.spatial = BasicConv(1, 1, kernel_size, stride=1,
-                                 padding=(kernel_size-1) // 2, relu=False)
-
-    def forward(self, U):
-        # se layer
-        b, c, h, w = U.shape
-        S = self.avg_pool(U).view(b, c)
-        E_1 = self.excitation_1(S)
-
-        E_local = self.excitation_2(E_1).view(b, c, 1, 1)
-        U_se = E_local * U
-
-        # spatial layer
-        U_se_max = torch.max(U_se, 1)[0].unsqueeze(1)
-        SP_Att = self.spatial(U_se_max)
-        U_se_sp = SP_Att * U_se
-
-        # global layer
-        E_global = self.global_attention(E_1).view(b, 1, 1, 1)
-        V = E_global * U_se_sp
-
-        # residual layer
-        O = U + V
-
-        return O
-
-class BasicConv(nn.Module):
-    def __init__(self, in_planes, out_planes, kernel_size, stride=1,
-                 padding=0, dilation=1, groups=1, relu=True, bn=True,
-                 bias=False):
-        super(BasicConv, self).__init__()
-        self.out_channels = out_planes
-        self.conv = nn.Conv2d(in_planes, out_planes, kernel_size=kernel_size,
-                              stride=stride, padding=padding,
-                              dilation=dilation, groups=groups, bias=bias)
-        self.bn = nn.BatchNorm2d(out_planes,eps=1e-5, momentum=0.01,
-                                 affine=True) if bn else None
-        self.relu = nn.ReLU() if relu else None
-
-    def forward(self, x):
-        x = self.conv(x)
-        if self.bn is not None:
-            x = self.bn(x)
-        if self.relu is not None:
-            x = self.relu(x)
-        return x
-
 
 class BoundaryModule(nn.Module):
     def __init__(self, inchannel):
