@@ -6,6 +6,14 @@ We provide the best model on MoCA improving over state of the art performance wi
 Our paper uses threshold 0.2 and [SOA](https://charigyang.github.io/motiongroup/) MoCA comparison uses threshold 0.1.
 
 * MATNet variants results without additiona YouTube-VOS data (NoYTB) and without Boundary Aware Refinement module (NoBAR)
+
+|Method   | Th  | Flip  | mIoU  | SR_0.5  | SR_0.6  | SR_0.7  | SR_0.8  | SR_0.9  | mSR  |
+|---|---|---|---|---|---|---|---|---|---|
+|   |   |   |   |   |   |   |   |   |   |
+|   |   |   |   |   |   |   |   |   |   |
+|   |   |   |   |   |   |   |   |   |   |
+|   |   |   |   |   |   |   |   |   |   |
+|   |   |   |   |   |   |   |   |   |   |
 _____
 Method | th | Flip | mIoU | SR_0.5 | SR_0.6 | SR_0.7 | SR_0.8 | SR_0.9 | mSR |
 FusionSeg Modified | 0.2 | No | 42.3 | 47.9 | 43.6 | 35.9 | 24.2 | 9.4 | 39.2|
