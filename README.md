@@ -9,28 +9,19 @@ Our paper uses threshold 0.2 and [SOA](https://charigyang.github.io/motiongroup/
 
 |Method   | Th  | Flip  | mIoU  | SR_0.5  | SR_0.6  | SR_0.7  | SR_0.8  | SR_0.9  | mSR  |
 |---|---|---|---|---|---|---|---|---|---|
-|   |   |   |   |   |   |   |   |   |   |
-|   |   |   |   |   |   |   |   |   |   |
-|   |   |   |   |   |   |   |   |   |   |
-|   |   |   |   |   |   |   |   |   |   |
-|   |   |   |   |   |   |   |   |   |   |
-_____
-Method | th | Flip | mIoU | SR_0.5 | SR_0.6 | SR_0.7 | SR_0.8 | SR_0.9 | mSR |
-FusionSeg Modified | 0.2 | No | 42.3 | 47.9 | 43.6 | 35.9 | 24.2 | 9.4 | 39.2|
-RTNet | 0.2 | No | 60.7 | 67.9 | 62.4 | 53.6 | 43.4 | 23.9 | 50.2 |
-MATNet reproduced | 0.1 | No | 66.9 | 76.5 | 70.8 | 60.9 | 46.0 | 23.5 | 55.5|
-MATNet NoBAR | 0.2 | No | 65.1 | 73.6 | 68.0 | 58.9 | 44.7 | 21.5 |  53.3|
-MATNet NoYTB | 0.2 | No | 54.7 | 59.9 | 53.5 | 44.0 | 31.0 | 13.4 | 40.3 |
-_____
+|FusionSeg Modified | 0.2 | No | 42.3 | 47.9 | 43.6 | 35.9 | 24.2 | 9.4 | 39.2|
+|RTNet | 0.2 | No | 60.7 | 67.9 | 62.4 | 53.6 | 43.4 | 23.9 | 50.2 |
+|MATNet reproduced | 0.1 | No | 66.9 | 76.5 | 70.8 | 60.9 | 46.0 | 23.5 | 55.5|
+|MATNet NoBAR | 0.2 | No | 65.1 | 73.6 | 68.0 | 58.9 | 44.7 | 21.5 |  53.3|
+|MATNet NoYTB | 0.2 | No | 54.7 | 59.9 | 53.5 | 44.0 | 31.0 | 13.4 | 40.3 |
 
 * Training reciprocal cross connections (cross connections similar to RTNet) with gated fusion (fusion similar to MATNet), which achieves best performance on MoCA.
-_____
-Method | th | Flip | mIoU | SR_0.5 | SR_0.6 | SR_0.7 | SR_0.8 | SR_0.9 | mSR|
-NonRecip CC + Gated Fusion | 0.1 | Yes |
-NonRecip CC + Gated Fusion | 0.2 | Yes |
+|Method   | Th  | Flip  | mIoU  | SR_0.5  | SR_0.6  | SR_0.7  | SR_0.8  | SR_0.9  | mSR  |
+|---|---|---|---|---|---|---|---|---|---|
+NonRecip CC + Gated Fusion | 0.1 | Yes | | | | | | | |
+NonRecip CC + Gated Fusion | 0.2 | Yes | | | | | | | |
 Recip CC + Gated Fusion | 0.2 | Yes | 70.6 | 81.2 | 75.5 | 65.0 | 48.1 | 23.0 |
 Recip CC + Gated Fusion | 0.1 | Yes | 67.6 | 77.9 | 70.1 | 59.1 | 40.7 | 16.8 |
-_____
 
 ## Installation
 
