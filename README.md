@@ -16,6 +16,7 @@ Our paper uses threshold 0.2 and [SOA](https://charigyang.github.io/motiongroup/
 |MATNet NoYTB | 0.2 | No | 54.7 | 59.9 | 53.5 | 44.0 | 31.0 | 13.4 | 40.3 |
 
 * Training reciprocal cross connections (cross connections similar to RTNet) with gated fusion (fusion similar to MATNet), which achieves best performance on MoCA.
+
 |Method   | Th  | Flip  | mIoU  | SR_0.5  | SR_0.6  | SR_0.7  | SR_0.8  | SR_0.9  | mSR  |
 |---|---|---|---|---|---|---|---|---|---|
 NonRecip CC + Gated Fusion | 0.1 | Yes | | | | | | | |
