@@ -7,8 +7,6 @@ import copy
 from modules.r2plus1d import r2plus1d_34
 import numpy as np
 from modules.netwarp import NetWarp
-#from flow_viz import flow_to_image
-#import cv2
 
 class Encoder(nn.Module):
     def __init__(self, args):
@@ -29,21 +27,12 @@ class Encoder(nn.Module):
         self.res5_1 = resnet_im.layer4
 
         resnet_fl = models.resnet101(pretrained=True)
-        if self.frame_nb > 1 and args.encoder_type == 'two_stream':
-            resnet_fl_3d = I3ResNet(copy.deepcopy(resnet_fl), self.frame_nb, center=self.center)
-            self.conv1_2 = resnet_fl_3d.conv1
-            self.bn1_2 = resnet_fl_3d.bn1
-            self.relu_2 = resnet_fl_3d.relu
-            self.maxpool_2 = resnet_fl_3d.maxpool
-            self.res2_2 = resnet_fl_3d.layer1
-            self.res3_2 = resnet_fl_3d.layer2
-        else:
-            self.conv1_2 = resnet_fl.conv1
-            self.bn1_2 = resnet_fl.bn1
-            self.relu_2 = resnet_fl.relu
-            self.maxpool_2 = resnet_fl.maxpool
-            self.res2_2 = resnet_fl.layer1
-            self.res3_2 = resnet_fl.layer2
+        self.conv1_2 = resnet_fl.conv1
+        self.bn1_2 = resnet_fl.bn1
+        self.relu_2 = resnet_fl.relu
+        self.maxpool_2 = resnet_fl.maxpool
+        self.res2_2 = resnet_fl.layer1
+        self.res3_2 = resnet_fl.layer2
 
         self.res4_2 = resnet_fl.layer3
         self.res5_2 = resnet_fl.layer4
@@ -75,20 +64,11 @@ class Encoder(nn.Module):
     def forward(self, f1, f2):
         r2_1, r2_2 = self.forward_res2(f1, f2)
 
-        if self.frame_nb > 1:
-            assert r2_2.ndim == 5
-            r2_2_original = r2_2
-            r2_2 = r2_2.mean(dim=2)
         r2 = torch.cat([r2_1, r2_2], dim=1)
 
         # res3
         r3_1 = self.res3_1(r2_1)
-        if self.frame_nb > 1:
-            r3_2 = self.res3_2(r2_2_original)
-            assert r3_2.ndim == 5
-            r3_2 = r3_2.mean(dim=2)
-        else:
-            r3_2 = self.res3_2(r2_2)
+        r3_2 = self.res3_2(r2_2)
 
         Za, Zb, Qa, Qb = self.coa_res3(r3_1, r3_2)
         r3_1 = F.relu(Zb + r3_1)
@@ -121,335 +101,18 @@ class Encoder(nn.Module):
         r2_gated = self.gated_res2(r2)
         return r5_gated, r4_gated, r3_gated, r2_gated
 
-class TemporalAttEncoder(Encoder):
-    def __init__(self, args):
-        # Since the encoder handles frame at a time
-        super(TemporalAttEncoder, self).__init__(args)
-
-        channels = {'res2': 256, 'res3': 512, 'res4': 1024, 'res5': 2048}
-        self.attention_config = args.attention_config
-        if self.attention_config.get('use_coords', False):
-            channels = {k: v+1 for k, v in channels.items()}
-
-        if self.attention_config.get('warping', False):
-            self.netwarp = NetWarp(args)
-
-        reduction = 16
-        self.global_attention = nn.ModuleDict()
-
-        for module_name, channel in channels.items():
-             self.global_attention[module_name] = nn.Sequential(
-                nn.AdaptiveAvgPool2d(1),
-                nn.Flatten(),
-                nn.Linear(channel, channel // reduction),
-                nn.ReLU(inplace=True),
-                nn.Linear(channel // reduction, 1),
-            )
-
-    def forward_res2(self, f1=None, f2=None):
-        if f1 is not None:
-            x1 = self.conv1_1(f1)
-            x1 = self.bn1_1(x1)
-            x1 = self.relu_1(x1)
-            x1 = self.maxpool_1(x1)
-            r2_1 = self.res2_1(x1)
-        else:
-            r2_1 = None
-
-        x2 = self.conv1_2(f2)
-        x2 = self.bn1_2(x2)
-        x2 = self.relu_2(x2)
-        x2 = self.maxpool_2(x2)
-        r2_2 = self.res2_2(x2)
-        return r2_1, r2_2
-
-    def parameters(self):
-        params = super().named_parameters()
-        final_params = {'new_weights': [], 'old_weights': []}
-        for name, param in params:
-            if not param.requires_grad:
-                continue
-
-            if 'netwarp' in name or 'global_attention' in name:
-                final_params['new_weights'].append(param)
-            else:
-                final_params['old_weights'].append(param)
-        return final_params
-
-    def _temporal_attend(self, clip_features, key, warping_flow=None):
-        """
-        clip_features: (torch.tensor) B x C x T x H x W
-        key: (str) indicating which module in resnet
-        """
-        aweights = []
-        new_clip_features = []
-        for i in range(clip_features.shape[2]):
-            if self.attention_config.get('use_coords', False):
-                fshape = (clip_features.shape[0], 1, *clip_features.shape[-2:])
-                coords = (torch.ones(fshape)*i).to(clip_features.device)
-                current_features = torch.cat((clip_features[:, :, i], coords), dim=1)
-            elif self.attention_config.get('warping', False):
-                assert warping_flow is not None
-
-                T = warping_flow.shape[2]
-                if i == T - 1:
-                    current_features = clip_features[:, :, i]
-                else:
-                    current_features = self.netwarp(warping_flow[:, :, i],
-                                                    clip_features[:, :, i],
-                                                    layer=key)
-            else:
-                current_features = clip_features[:, :, i]
-            aweights.append(self.global_attention[key](current_features).squeeze(1))
-            new_clip_features.append(current_features)
-
-        clip_features = torch.stack(new_clip_features).permute(1,2,0,3,4)
-        aweights = torch.stack(aweights).permute(1, 0)
-        aweights = torch.softmax(aweights, dim=1)
-        entropy = - (aweights * torch.log(aweights + 1e-6)).sum()
-        #print('Attention Weights: ', aweights, ' Entropy ', entropy)
-        clip_features = aweights.view(aweights.shape[0], 1, aweights.shape[1], 1, 1) * clip_features
-        aggregated_features = clip_features.sum(dim=2)
-        clip_features = torch.split(clip_features, dim=2, split_size_or_sections=1)
-        clip_features = [f.squeeze(2) for f in clip_features]
-        return aggregated_features, clip_features, entropy
-
-    def forward(self, f1, f2):
-        if self.attention_config.get('warping', False):
-            original_imgs = f1
-            warping_flow = self.netwarp.compute_flow(original_imgs)
-            ########################## Debugging Code ################################
-            #for bidx in range(warping_flow.shape[0]):
-            #    for fidx in range(warping_flow.shape[2]):
-            #        flo_img = flow_to_image(
-            #            np.array(warping_flow[bidx, :, fidx].cpu().permute(1,2,0))
-            #        )
-            #        cv2.imwrite('flows/flow_%03d_%03d.png'%(bidx, fidx), flo_img)
-
-            #        img = denorm(original_imgs[bidx, :, fidx].cpu())
-
-            #        cv2.imwrite('images/img_%03d_%03d.png'%(bidx, fidx), img.transpose(1,2,0))
-            #import pdb; pdb.set_trace()
-        else:
-            warping_flow = None
-
-        r2_entropy, r3_entropy= torch.tensor([0]).to(f1.device), torch.tensor([0]).to(f1.device)
-
-        f1 = f1[:, :, -1]
-
-        r2_2s = []
-        for i in range(f2.shape[2]):
-            if i == 0:
-                r2_1, r2_2 = self.forward_res2(f1, f2[:, :, i])
-            else:
-                _, r2_2 = self.forward_res2(None, f2[:, :, i])
-            r2_2s.append(r2_2)
-        r2_2s = torch.stack(r2_2s).permute(1,2,0,3,4)
-        r2_2, r2_2s, r2_entropy = self._temporal_attend(
-                r2_2s, 'res2', warping_flow=warping_flow
-        )
-        r2 = torch.cat([r2_1, r2_2], dim=1)
-
-        # res3
-        r3_1 = self.res3_1(r2_1)
-        r3_2 = self.res3_2(r2_2)
-        if 'res3' in self.attention_config['attention_layers']:
-            r3_2s = []
-            for flow_fr in r2_2s:
-                r3_2s.append(self.res3_2(flow_fr))
-            r3_2s = torch.stack(r3_2s).permute(1,2,0,3,4)
-            r3_2_, r3_2s, r3_entropy = self._temporal_attend(
-                    r3_2s, 'res3', warping_flow=warping_flow
-            )
-            #r3_2 = r3_2 + r3_2_
-            r3_2 = r3_2_
-
-        Za, Zb, Qa, Qb = self.coa_res3(r3_1, r3_2)
-        r3_1 = F.relu(Zb + r3_1)
-        r3_2 = F.relu(Qb + r3_2)
-        r3 = torch.cat([r3_1, r3_2], dim=1)
-
-        # res4
-        r4_1 = self.res4_1(r3_1)
-        r4_2 = self.res4_2(r3_2)
-        if 'res4' in self.attention_config['attention_layers']:
-            r4_2s = []
-            for flow_fr in r3_2s:
-                r4_2s.append(self.res4_2(flow_fr))
-            r4_2s = torch.stack(r4_2s).permute(1,2,0,3,4)
-            r4_2_, r4_2s, _ = self._temporal_attend(
-                r4_2s, 'res4', warping_flow=warping_flow
-            )
-            r4_2 = r4_2 + r4_2_
-
-        Za, Zb, Qa, Qb = self.coa_res4(r4_1, r4_2)
-        r4_1 = F.relu(Zb + r4_1)
-        r4_2 = F.relu(Qb + r4_2)
-        r4 = torch.cat([r4_1, r4_2], dim=1)
-
-        # res5
-        r5_1 = self.res5_1(r4_1)
-        r5_2 = self.res5_2(r4_2)
-        if 'res5' in self.attention_config['attention_layers']:
-            r5_2s = []
-            for flow_fr in r4_2s:
-                r5_2s.append(self.res5_2(flow_fr))
-            r5_2s = torch.stack(r5_2s).permute(1,2,0,3,4)
-            r5_2_, _, _ = self._temporal_attend(
-                r5_2s, 'res5', warping_flow=warping_flow
-            )
-            r5_2 = r5_2 + r5_2_
-
-        Za, Zb, Qa, Qb = self.coa_res5(r5_1, r5_2)
-        r5_1 = F.relu(Zb + r5_1)
-        r5_2 = F.relu(Qb + r5_2)
-        r5 = torch.cat([r5_1, r5_2], dim=1)
-
-        r5_gated = self.gated_res5(r5)
-        r4_gated = self.gated_res4(r4)
-        r3_gated = self.gated_res3(r3)
-        r2_gated = self.gated_res2(r2)
-
-        if self.attention_config.get('use_aux_loss', False):
-            entropy_loss = r2_entropy + r3_entropy
-            return r5_gated, r4_gated, r3_gated, r2_gated, entropy_loss
-        else:
-            return r5_gated, r4_gated, r3_gated, r2_gated
-
-
-class ThreeStreamEncoder(Encoder):
-    def __init__(self, args):
-        super(ThreeStreamEncoder, self).__init__(args)
-        self._construct_third_stream(cfg=args.third_stream_config)
-
-    def _construct_third_stream(self, cfg):
-        if cfg['encoder_type'] == 'i3d':
-            resnet_fl_3d = I3ResNet(copy.deepcopy(resnet_fl), self.frame_nb, center=self.center)
-            self.conv1_3 = resnet_fl_3d.conv1
-            self.bn1_3 = resnet_fl_3d.bn1
-            self.relu_3 = resnet_fl_3d.relu
-            self.maxpool_3 = resnet_fl_3d.maxpool
-            self.res2_3 = resnet_fl_3d.layer1
-            self.res3_3 = resnet_fl_3d.layer2
-            self.res4_3 = resnet_fl_3d.layer3
-            self.res5_3 = resnet_fl_3d.layer4
-            self.tchs = [256, 512, 1024, 2048]
-
-        elif cfg['encoder_type'] == 'r2plus1d':
-            resnet_fl_3d = r2plus1d_34(pretraining="8_ig65m", use_pool1= True)
-            self.conv1_3 = resnet_fl_3d.stem
-            self.bn1_3 = None
-            self.relu_3 = None
-            self.maxpool_3 = None
-            self.res2_3 = resnet_fl_3d.layer1
-            self.res3_3 = resnet_fl_3d.layer2
-            self.res4_3 = resnet_fl_3d.layer3
-            self.res5_3 = resnet_fl_3d.layer4
-            self.tchs = [64, 128, 256, 512]
-
-        if cfg['fusion_type'] == 'conv':
-            #self.global_temporal_pool = nn.MaxPool3d(kernel_size=(3, 3, 3), stride= (2, 1, 1), padding=(0, 1, 1), dilation=(1, 1, 1))
-            self.short_long_fusion2 = nn.Sequential(nn.Conv2d(256 + self.tchs[0], 256, 1),
-                                                    nn.BatchNorm2d(256), nn.ReLU(inplace=True))
-            self.short_long_fusion3 = nn.Sequential(nn.Conv2d(512 + self.tchs[1], 512, 1),
-                                                    nn.BatchNorm2d(512), nn.ReLU(inplace=True))
-            self.short_long_fusion4 = nn.Sequential(nn.Conv2d(1024 + self.tchs[2], 1024, 1),
-                                                    nn.BatchNorm2d(1024), nn.ReLU(inplace=True))
-            self.short_long_fusion5 = nn.Sequential(nn.Conv2d(2048 + self.tchs[3], 2048, 1),
-                                                    nn.BatchNorm2d(2048), nn.ReLU(inplace=True))
-    def forward_res2(self, f1, f2):
-        x1 = self.conv1_1(f1)
-        x1 = self.bn1_1(x1)
-        x1 = self.relu_1(x1)
-        x1 = self.maxpool_1(x1)
-        r2_1 = self.res2_1(x1)
-
-        f2_current = f2[:, :, -1]
-        x2 = self.conv1_2(f2_current)
-        x2 = self.bn1_2(x2)
-        x2 = self.relu_2(x2)
-        x2 = self.maxpool_2(x2)
-        r2_2 = self.res2_2(x2)
-
-        x3 = self.conv1_3(f2)
-        if self.bn1_3 is not None:
-            # In case of R2plus1D conv1_3 has the whole stem
-            x3 = self.bn1_3(x3)
-            x3 = self.relu_3(x3)
-            x3 = self.maxpool_3(x3)
-        r2_3 = self.res2_3(x3)
-        r2_3_mp = r2_3.mean(dim=2)#self.global_temporal_pool(r2_3).squeeze(2)
-
-        # Perform an attention mechanism to weight longer versus shorter temporal info.
-        r2_2 = r2_2 + self.short_long_fusion2(torch.cat((r2_3_mp, r2_2), dim=1))
-        return r2_1, r2_2, r2_3
-
-    def forward(self, f1, f2):
-
-        r2_1, r2_2, r2_3 = self.forward_res2(f1, f2)
-        r2 = torch.cat([r2_1, r2_2], dim=1)
-
-        # res3
-        r3_1 = self.res3_1(r2_1)
-        r3_2 = self.res3_2(r2_2)
-        r3_3 = self.res3_3(r2_3)
-        r3_3_mp = r3_3.mean(dim=2)
-        r3_2 = r3_2 + self.short_long_fusion3(torch.cat((r3_3_mp, r3_2), dim=1))
-
-        Za, Zb, Qa, Qb = self.coa_res3(r3_1, r3_2)
-        r3_1 = F.relu(Zb + r3_1)
-        r3_2 = F.relu(Qb + r3_2)
-        r3 = torch.cat([r3_1, r3_2], dim=1)
-
-        # res4
-        r4_1 = self.res4_1(r3_1)
-        r4_2 = self.res4_2(r3_2)
-        r4_3 = self.res4_3(r3_3)
-        r4_3_mp = r4_3.mean(dim=2)
-        r4_2 = r4_2 + self.short_long_fusion4(torch.cat((r4_3_mp, r4_2), dim=1))
-
-        Za, Zb, Qa, Qb = self.coa_res4(r4_1, r4_2)
-        r4_1 = F.relu(Zb + r4_1)
-        r4_2 = F.relu(Qb + r4_2)
-        r4 = torch.cat([r4_1, r4_2], dim=1)
-
-        # res5
-        r5_1 = self.res5_1(r4_1)
-        r5_2 = self.res5_2(r4_2)
-        r5_3 = self.res5_3(r4_3)
-        r5_3_mp = r5_3.mean(dim=2)
-        r5_2 = r5_2 + self.short_long_fusion5(torch.cat((r5_3_mp, r5_2), dim=1))
-
-        Za, Zb, Qa, Qb = self.coa_res5(r5_1, r5_2)
-        r5_1 = F.relu(Zb + r5_1)
-        r5_2 = F.relu(Qb + r5_2)
-        r5 = torch.cat([r5_1, r5_2], dim=1)
-
-        r5_gated = self.gated_res5(r5)
-        r4_gated = self.gated_res4(r4)
-        r3_gated = self.gated_res3(r3)
-        r2_gated = self.gated_res2(r2)
-
-        return r5_gated, r4_gated, r3_gated, r2_gated
-
-Encoder_Classes = {'two_stream': Encoder, 'two_stream_temporal_attention': TemporalAttEncoder, 'three_stream': ThreeStreamEncoder}
 class MATNet(nn.Module):
     def __init__(self, args):
         super(MATNet, self).__init__()
         self.args = args
 
-        self.encoder = Encoder_Classes[args.encoder_type](args=args)
+        self.encoder = Encoder(args=args)
         self.decoder = Decoder()
 
     def forward(self, image, flow):
-        if hasattr(self.args, 'attention_config') and self.args.attention_config.get('use_aux_loss', False):
-            r5, r4, r3, r2, entropy_loss = self.encoder(image, flow)
-        else:
-            r5, r4, r3, r2 = self.encoder(image, flow)
-            entropy_loss = None
-
+        r5, r4, r3, r2 = self.encoder(image, flow)
         mask_pred, p1, p2, p3, p4, p5 = self.decoder(r5, r4, r3, r2)
-        return mask_pred, p1, p2, p3, p4, p5, entropy_loss
+        return mask_pred, p1, p2, p3, p4, p5
 
 
 class CoAttention(nn.Module):

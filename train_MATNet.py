@@ -180,17 +180,13 @@ def trainIters(args):
             for batch_idx, (image, flow, mask, bdry, negative_pixels, stylizedimg, path) in\
                     enumerate(loaders[split]):
 
-                if args.frame_nb > 1:
-                    flow = flow.permute(0, 2, 1, 3, 4)
-                    image = image.permute(0, 2, 1, 3, 4)
-
                 cur_itrs += 1
                 image, flow, mask, bdry, negative_pixels = \
                     image.to(device), flow.to(device), mask.to(device), bdry.to(device),\
                     negative_pixels.to(device)
 
                 if split == 'train':
-                    mask_pred, p1, p2, p3, p4, p5, entropy_loss = model(image, flow)
+                    mask_pred, p1, p2, p3, p4, p5 = model(image, flow)
 
                     mask_loss = criterion(mask_pred, mask, negative_pixels)
                     bdry_loss = criterion(p1, bdry, negative_pixels) + \
@@ -199,9 +195,6 @@ def trainIters(args):
                                 criterion(p4, bdry, negative_pixels) + \
                                 criterion(p5, bdry, negative_pixels)
                     loss = mask_loss + 0.2 * bdry_loss
-                    if args.attention_config.get('use_aux_loss', False):
-                        assert entropy_loss is not None, "Sth is wrong"
-                        loss += entropy_loss.mean()
 
                     iou = db_eval_iou_multi(mask.cpu().detach().numpy(),
                                             mask_pred.cpu().detach().numpy())
@@ -212,19 +205,8 @@ def trainIters(args):
                         mask_pred_vis = mask_denorm(mask_pred[bidx].detach())
                         neg_vis = mask_denorm(negative_pixels[bidx])
 
-                        if args.frame_nb <= 1:
-                            flow_vis = denorm(flow[bidx].cpu())
-                            img_vis = denorm(image[bidx].cpu())
-                        else:
-                            img_vis = []
-                            assert flow.ndim == 5, "Wrong flow dimensions"
-                            flow_vis = []
-                            for frameid in range(flow.shape[2]):
-                                flow_vis.append(denorm(flow[bidx, :, frameid].cpu()))
-                                img_vis.append(denorm(image[bidx, :, frameid].cpu()))
-                            flow_vis = np.concatenate(flow_vis, axis=2)
-                            img_vis = np.concatenate(img_vis, axis=2)
-
+                        flow_vis = denorm(flow[bidx].cpu())
+                        img_vis = denorm(image[bidx].cpu())
                         concat_img_mask = np.concatenate((img_vis, mask_vis, mask_pred_vis,
                                                           neg_vis), axis=2)
 

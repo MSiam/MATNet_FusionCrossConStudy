@@ -21,13 +21,6 @@ def flip(x, dim):
         return torch.index_select(x, dim, torch.arange(x.size(dim) - 1, -1, -1).long())
 
 
-'''
-CUDA_VISIBLE_DEVICES=1 python test_MATNet.py -result_dir two_stream_frame_5_sample_1/masks -ckpt_epoch 23 -ckpt_path ckpts/two_stream_frame_5_sample_1 -frame_nb 5 -sampling_rate 1
-CUDA_VISIBLE_DEVICES=2 python test_MATNet.py -result_dir two_stream_frame_5_sample_2/masks -ckpt_epoch 21 -ckpt_path ckpts/two_stream_frame_5_sample_2 -frame_nb 5 -sampling_rate 2
-CUDA_VISIBLE_DEVICES=3 python test_MATNet.py -result_dir two_stream_frame_5_sample_3/masks -ckpt_epoch 23 -ckpt_path ckpts/two_stream_frame_5_sample_3 -frame_nb 5 -sampling_rate 3
-CUDA_VISIBLE_DEVICES=3 python test_MATNet.py -result_dir two_stream_frame_10_sample_3/masks -ckpt_epoch 23 -ckpt_path ckpts/two_stream_frame_10_sample_3 -frame_nb 10 -sampling_rate 3
-'''
-
 parser = get_parser()
 args = parser.parse_args()
 args = read_and_merge_cfg(args)
@@ -78,24 +71,14 @@ with torch.no_grad():
     for image, flow, width, height, video, imagefile in tqdm(dataset):
         image = image.unsqueeze(0)
         flow = flow.unsqueeze(0)
-        if args.frame_nb > 1:
-            flow = flow.permute(0, 2, 1, 3, 4)
-            if args.imgseq:
-                image = image.permute(0, 2, 1, 3, 4)
 
         image, flow = image.cuda(), flow.cuda()
         mask_pred, bdry_pred, p2, p3, p4, p5, _ = model(image, flow)
 
         if use_flip:
-            if args.frame_nb > 1:
-                flip_dim = 4
-            else:
-                flip_dim = 3
+            flip_dim = 3
 
-            if args.imgseq:
-                image_flip = flip(image, flip_dim)
-            else:
-                image_flip = flip(image, 3)
+            image_flip = flip(image, 3)
 
             flow_flip = flip(flow, flip_dim)
             mask_pred_flip, bdry_pred_flip, p2, p3, p4, p5, _ =\
