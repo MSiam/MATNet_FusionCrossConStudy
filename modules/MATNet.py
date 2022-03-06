@@ -17,7 +17,7 @@ class Encoder(nn.Module):
         self.frame_nb = args.frame_nb
         self.center = args.center
 
-        self.masking_cfg = args.masking_cfg
+        self.masking_cfg = {} if not hasattr(args, 'masking_cfg') else args.masking_cfg
 
         ######### cross connection types:
         ######### coatt, coatt_gated, coatt_gated_recip, coat_recip, coatt_sum

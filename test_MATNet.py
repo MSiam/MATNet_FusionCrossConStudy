@@ -35,7 +35,7 @@ image_transforms = transforms.Compose([to_tensor, normalize])
 
 model_name = 'MATNet' # specify the model name
 epoch = args.ckpt_epoch # specify the epoch number
-result_dir = 'outputs/vis_final/MoCA/' + args.result_dir
+result_dir = args.result_dir
 
 encoder_dict, decoder_dict, enc_opt_dict, dec_opt_dict, load_args =\
     load_checkpoint_epoch(model_name, epoch, True, False, args=args)
@@ -73,7 +73,7 @@ with torch.no_grad():
         flow = flow.unsqueeze(0)
 
         image, flow = image.cuda(), flow.cuda()
-        mask_pred, bdry_pred, p2, p3, p4, p5, _ = model(image, flow)
+        mask_pred, bdry_pred, p2, p3, p4, p5 = model(image, flow)
 
         if use_flip:
             flip_dim = 3
@@ -81,7 +81,7 @@ with torch.no_grad():
             image_flip = flip(image, 3)
 
             flow_flip = flip(flow, flip_dim)
-            mask_pred_flip, bdry_pred_flip, p2, p3, p4, p5, _ =\
+            mask_pred_flip, bdry_pred_flip, p2, p3, p4, p5 =\
                 model(image_flip, flow_flip)
 
             mask_pred_flip = flip(mask_pred_flip, 3)

@@ -41,7 +41,10 @@ CUDA_VISIBLE_DEVICES=2,3 python train_MATNet.py -cfg_file CONFIG -gpu_id 0 1 -wa
 python test_MATNet.py -ckpt_epoch BEST_EPOCH -ckpt_path CKPT_PATH -result_dir RESULT_DIR
 ```
 
-
+## Inference and Evaluation on MoCA
+```
+bash scripts/eval_MoCA.sh CFG CKPT BEST_EPOCH MASK_RESULT_DIR GPU_ID CSV_RESULT_DIR
+```
 ## Trained Models
 For original MATNet use their provided models, for the reciprocal version with gated fusion that achieved best MoCA results use this [model]().
 

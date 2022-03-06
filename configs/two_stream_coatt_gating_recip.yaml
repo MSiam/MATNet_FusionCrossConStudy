@@ -2,7 +2,7 @@ third_stream: False
 center: False
 batch_size: 6
 num_workers: 4
-ckpt_path: /local/riemann/home/msiam/fusioncc_allckpts/ckpt_cctype_coatt_gating_recip/
+ckpt_path: /local/riemann/home/msiam/ckpts_cctypes/ckpt_cctype_coatt_gating_recip/
 cc_type: 'coatt_gated_recip'
 encoder_type: 'two_stream'
 vis_freq: 200
