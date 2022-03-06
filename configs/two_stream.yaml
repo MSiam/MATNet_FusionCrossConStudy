@@ -2,7 +2,7 @@ third_stream: False
 center: False
 batch_size: 6
 num_workers: 4
-ckpt_path: ckpt_multigpu_reproduce/
+ckpt_path: /local/riemann/home/msiam/ckpts_fusion_types/ckpt_fusiontype_gated/
 encoder_type: 'two_stream'
 vis_freq: 200
 frame_nb: -1

@@ -97,6 +97,7 @@ def get_parser():
 
     parser.add_argument('-mot_biased', action='store_true')
     parser.add_argument('-auto_resume', default=True)
+    parser.add_argument('-use_flip', action='store_true')
 
     parser.set_defaults(display=False)
     parser.set_defaults(display_route=False)

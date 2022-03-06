@@ -166,7 +166,7 @@ def main(args):
                 if heuristic_fg_bg(mask) > 0.5:
                     mask = (255-mask).astype(np.uint8)
 
-                thres = 0.2*255
+                thres = args.thresh*255
                 mask[mask>thres]=255
                 mask[mask<=thres]=0
 
@@ -282,16 +282,9 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument('--masks_dir', type=str, default='')
     parser.add_argument('--resize', type=int, default=1)
+    parser.add_argument('--thresh', type=float, default=0.2)
     parser.add_argument('--out_dir', type=str, default='../vis_final/MoCA')
     parser.add_argument('--MoCA_dir', type=str, default='/mnt/zeta_share_1/public_share/Datasets/MoCA/MoCA_filtered')
     parser.add_argument('--MoCA_csv', type=str, default='/mnt/zeta_share_1/public_share/Datasets/MoCA/Annotations/annotations.csv')
     args = parser.parse_args()
     main(args)
-
-
-'''
-python MoCA_eval.py --out_dir outputs/vis_final/MoCA/two_stream_frame_5_sample_3/eval --masks_dir outputs/vis_final/MoCA/two_stream_frame_5_sample_3/masks/MATNet_epoch23
-python MoCA_eval.py --out_dir outputs/vis_final/MoCA/two_stream_frame_5_sample_2/eval --masks_dir outputs/vis_final/MoCA/two_stream_frame_5_sample_2/masks/MATNet_epoch21
-python MoCA_eval.py --out_dir outputs/vis_final/MoCA/two_stream_frame_5_sample_1/eval --masks_dir outputs/vis_final/MoCA/two_stream_frame_5_sample_1/masks/MATNet_epoch23
-python MoCA_eval.py --out_dir outputs/vis_final/MoCA/two_stream_frame_10_sample_3/eval --masks_dir outputs/vis_final/MoCA/two_stream_frame_10_sample_3/masks/MATNet_epoch23
-'''
