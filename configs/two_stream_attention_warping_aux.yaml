@@ -1,0 +1,16 @@
+third_stream: False
+center: False
+batch_size: 6
+num_workers: 4
+ckpt_path: ckpt_twostream_attention_warping_auxloss/
+frame_nb: 5
+sampling_rate: 1
+encoder_type: 'two_stream_temporal_attention'
+attention_config:
+  attention_layers: ['res2']
+  warping: True
+  use_coords: False
+  use_aux_loss: True
+warp_config:
+  residual_warp: True
+imgseq: True

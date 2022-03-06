@@ -1,0 +1,19 @@
+third_stream: False
+center: False
+batch_size: 6
+num_workers: 2
+ckpt_path: ckpt_twostream_attention_warping_pretrained1/
+frame_nb: 5
+sampling_rate: 1
+encoder_type: 'two_stream_temporal_attention'
+pretrained_weights: '/local/riemann/home/msiam/MATNet_Checkpoints/ckpt_twostream_attention_warping/'
+pretrained_epoch: 15
+newweights_treated: 1 #0: original setup, 1: new weights higher lr, 2: old weights fixed
+attention_config:
+  attention_layers: ['res2']
+  warping: True
+  use_coords: False
+  use_aux_loss: False
+warp_config:
+  residual_warp: True
+imgseq: True

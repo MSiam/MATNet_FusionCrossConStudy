@@ -1,0 +1,13 @@
+third_stream: True
+center: False
+vis_port: 1025
+vis_env: threestream_r2plus1d
+batch_size: 6
+num_workers: 4
+ckpt_path: ckpt_threestream/
+frame_nb: 5
+sampling_rate: 2
+encoder_type: 'three_stream'
+third_stream_config:
+  encoder_type: r2plus1d
+  fusion_type: conv

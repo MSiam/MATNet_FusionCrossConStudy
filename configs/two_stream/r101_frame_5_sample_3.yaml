@@ -1,0 +1,7 @@
+third_stream: False
+center: False
+frame_nb: 5
+sampling_rate: 3
+third_stream_config:
+  encoder_type: r2plus1d
+  fusion_type: conv

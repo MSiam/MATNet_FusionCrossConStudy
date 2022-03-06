@@ -1,0 +1,8 @@
+third_stream: False
+center: False
+batch_size: 6
+num_workers: 4
+ckpt_path: ckpt_multigpu_reproduce/
+encoder_type: 'two_stream'
+vis_freq: 200
+frame_nb: -1
