@@ -100,19 +100,6 @@ def trainIters(args):
         encoder_dict, decoder_dict = check_parallel(encoder_dict, decoder_dict)
         model.encoder.load_state_dict(encoder_dict, strict=False)
         model.decoder.load_state_dict(decoder_dict, strict=False)
-
-    elif args.resume:
-        encoder_dict, decoder_dict, enc_opt_dict, dec_opt_dict, load_args = \
-            load_checkpoint_epoch(args.model_name, args.epoch_resume,
-                                  args.use_gpu)
-
-        epoch_resume = args.epoch_resume
-
-        model = MATNet(args=args)
-
-        encoder_dict, decoder_dict = check_parallel(encoder_dict, decoder_dict)
-        model.encoder.load_state_dict(encoder_dict)
-        model.decoder.load_state_dict(decoder_dict)
     else:
         model = MATNet(args=args)
 
@@ -124,37 +111,10 @@ def trainIters(args):
         model.to(device)
         criterion.to(device)
 
-    encoder_params = model.module.encoder.parameters()
+    encoder_params = list(model.module.encoder.parameters())
     decoder_params = list(model.module.decoder.parameters())
-    if type(encoder_params) == dict:
-        if args.newweights_treated == 1:
-            # Use higher weights for new params in Encoder
-            decoder_params += encoder_params['new_weights']
-            encoder_params = encoder_params['old_weights']
-            enc_opt = get_optimizer(args.optim_cnn, args.lr_cnn, encoder_params,
-                                args.weight_decay_cnn)
-
-        elif args.newweights_treated == 2:
-            # Train only new weights in Encoder
-            for p in decoder_params:
-                p.requires_grad = False
-            for p in encoder_params['old_weights']:
-                p.requires_grad = False
-
-            decoder_params = encoder_params['new_weights']
-
-            enc_opt = None
-        else:
-            # Original setup 2stream att + warping
-            encoder_params = encoder_params['old_weights'] + encoder_params['new_weights']
-            enc_opt = get_optimizer(args.optim_cnn, args.lr_cnn, encoder_params,
-                                args.weight_decay_cnn)
-    else:
-        # Original setup Other models
-        encoder_params = list(encoder_params)
-        enc_opt = get_optimizer(args.optim_cnn, args.lr_cnn, encoder_params,
+    enc_opt = get_optimizer(args.optim_cnn, args.lr_cnn, encoder_params,
                             args.weight_decay_cnn)
-
     dec_opt = get_optimizer(args.optim, args.lr, decoder_params,
                             args.weight_decay)
 
@@ -229,11 +189,9 @@ def trainIters(args):
                                        })
 
                     dec_opt.zero_grad()
-                    if enc_opt is not None:
-                        enc_opt.zero_grad()
+                    enc_opt.zero_grad()
                     loss.backward()
-                    if enc_opt is not None:
-                        enc_opt.step()
+                    enc_opt.step()
                     dec_opt.step()
                 else:
                     with torch.no_grad():
