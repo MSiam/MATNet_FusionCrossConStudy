@@ -296,7 +296,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args = read_and_merge_cfg(args)
 
-    args.ckpt_path = 'ckpts/' + args.ckpt_path
+    args.ckpt_path = args.ckpt_path
 
     args.model_name = 'MATNet'
     args.max_epoch = 25
