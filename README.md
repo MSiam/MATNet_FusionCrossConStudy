@@ -1,28 +1,29 @@
 ##  Fusion Tyes and Cross Connection Study
 Official Implementation used for training MATNet variants in our CVPR2022 Work.
-We provide the best model on MoCA improving over state of the art performance with 3%.
+We provide the best models on MoCA improving over state of the art performance with 3%.
 
 ## MoCA Results
-Our paper uses threshold 0.2 and [SOA](https://charigyang.github.io/motiongroup/) MoCA comparison uses threshold 0.1.
+Our paper uses threshold 0.2 and [SOA](https://charigyang.github.io/motiongroup/) MoCA comparison uses threshold 0.1. We recommend for better reporting on MoCA to compute area under the curve for different thresholds but is out of our current work scope.
 
-* MATNet variants results without additiona YouTube-VOS data (NoYTB) and without Boundary Aware Refinement module (NoBAR)
+* MATNet variants results without additional YouTube-VOS data (NoYTB) and without Boundary Aware Refinement module (NoBAR)
 
 |Method   | Th  | Flip  | mIoU  | SR_0.5  | SR_0.6  | SR_0.7  | SR_0.8  | SR_0.9  | mSR  |
 |---|---|---|---|---|---|---|---|---|---|
 |FusionSeg Modified | 0.2 | No | 42.3 | 47.9 | 43.6 | 35.9 | 24.2 | 9.4 | 39.2|
 |RTNet | 0.2 | No | 60.7 | 67.9 | 62.4 | 53.6 | 43.4 | 23.9 | 50.2 |
-|MATNet reproduced | 0.1 | No | 66.9 | 76.5 | 70.8 | 60.9 | 46.0 | 23.5 | 55.5|
+|MATNet reproduced | 0.1 | No | 67.3 | 75.9 | 70.8 | 61.9 | 48.6 | 26.0 | 56.6|
 |MATNet NoBAR | 0.2 | No | 65.1 | 73.6 | 68.0 | 58.9 | 44.7 | 21.5 |  53.3|
 |MATNet NoYTB | 0.2 | No | 54.7 | 59.9 | 53.5 | 44.0 | 31.0 | 13.4 | 40.3 |
 
 * Training reciprocal cross connections (cross connections similar to RTNet) with gated fusion (fusion similar to MATNet), which achieves best performance on MoCA.
+Reciprocal connections (motion-to-appearance and appearance-to-motion) can encourage dynamics if trained with proper fusion and training data without pretraining towards saliency. RTNet convex combination gated fusion has shown to cause accuracy degradation on the other hand.
 
 |Method   | Th  | Flip  | mIoU  | SR_0.5  | SR_0.6  | SR_0.7  | SR_0.8  | SR_0.9  | mSR  |
 |---|---|---|---|---|---|---|---|---|---|
-NonRecip CC + Gated Fusion | 0.1 | Yes | | | | | | | |
-NonRecip CC + Gated Fusion | 0.2 | Yes | | | | | | | |
-Recip CC + Gated Fusion | 0.2 | Yes | 70.6 | 81.2 | 75.5 | 65.0 | 48.1 | 23.0 |
-Recip CC + Gated Fusion | 0.1 | Yes | 67.6 | 77.9 | 70.1 | 59.1 | 40.7 | 16.8 |
+NonRecip CC + Gated Fusion | 0.1 | Yes | 70.2| 79.4 | 74.1 | 64.6 | 49.0 | 23.8| 58.2|
+NonRecip CC + Gated Fusion | 0.2 | Yes | 68.5| 77.3| 72.2| 63.5| 50.6| 27.0 | 58.1|
+Recip CC + Gated Fusion | 0.2 | Yes | 70.6 | 81.2 | 75.5 | 65.0 | 48.1 | 23.0 | 58.6|
+Recip CC + Gated Fusion | 0.1 | Yes | 67.6 | 77.9 | 70.1 | 59.1 | 40.7 | 16.8 | 52.9|
 
 ## Installation
 
@@ -68,7 +69,7 @@ python test_MATNet.py -ckpt_epoch BEST_EPOCH -ckpt_path CKPT_PATH -result_dir RE
 bash scripts/eval_MoCA.sh CFG CKPT BEST_EPOCH MASK_RESULT_DIR GPU_ID CSV_RESULT_DIR
 ```
 ## Trained Models
-For original MATNet use their provided models, for the reciprocal version with gated fusion that achieved best MoCA results use this [model](https://www.dropbox.com/s/8eoqdbf1d6kaxli/ckpt_cctype_coatt_gating_recip.zip?dl=0).
+For original MATNet use their provided models and for the reciprocal version with gated fusion that achieved best MoCA results use this [model](https://www.dropbox.com/s/8eoqdbf1d6kaxli/ckpt_cctype_coatt_gating_recip.zip?dl=0).
 
 ## References
 

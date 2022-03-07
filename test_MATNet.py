@@ -26,7 +26,7 @@ args = parser.parse_args()
 args = read_and_merge_cfg(args)
 
 inputRes = (473, 473)
-use_flip = True
+use_flip = args.use_flip
 
 to_tensor = transforms.ToTensor()
 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
