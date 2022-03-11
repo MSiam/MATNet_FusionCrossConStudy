@@ -34,7 +34,7 @@ Other minor Python modules can be installed by running
 pip install -r requirements.txt
 ```
 
-## Train
+## Datasets
 
 ### Download Datasets
 We follow MATNet and use the following two public available dataset for training. Here are some steps to prepare the data:
@@ -45,9 +45,12 @@ We follow MATNet and use the following two public available dataset for training
     ```cd data; ln -s your/davis17/path DAVIS2017; ln -s your/youtubevos/path YouTubeVOS_2018;```
     
 ### Prepare Edge Annotatios, HED Results and Optical Flow
-Use MATNet instructions 
+Use MATNet instructions from [here](https://github.com/tfzhou/MATNet)
 
-### Train
+### Prepare MoCA for Evaluation
+Follow motiongrouping instructions from [here](https://github.com/charigyang/motiongrouping/)
+
+## Train
 * Choose the right config:
     * Original matnet: configs/two_stream.yaml
     * reciprocal version with gated fusion: configs/two_stream_coatt_gating_recip.yaml
