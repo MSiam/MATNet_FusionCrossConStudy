@@ -74,6 +74,17 @@ bash scripts/eval_MoCA.sh CFG CKPT BEST_EPOCH MASK_RESULT_DIR GPU_ID CSV_RESULT_
 ## Trained Models
 For original MATNet use their provided models and for the reciprocal version with gated fusion that achieved best MoCA results use this [model](https://www.dropbox.com/s/8eoqdbf1d6kaxli/ckpt_cctype_coatt_gating_recip.zip?dl=0).
 
+## BibTeX
+If you find this repository useful, please consider citing our work :t-rex:
+
+
+      @InProceedings{kowal2022deeper,
+       title={A Deeper Dive Into What Deep Spatiotemporal Networks Encode: Quantifying Static vs. Dynamic Information},
+       author={Kowal, Matthew and Siam, Mennatullah and Islam, Md Amirul and Bruce, Neil and Wildes, Richard P. and Derpanis, Konstantinos G.},
+       booktitle={Conference on Computer Vision and Pattern Recognition},
+       year={2022}
+     }
+     
 ## References
 
 * This repository heavily relies on [MATNet](https://github.com/tfzhou/MATNet) repo.
