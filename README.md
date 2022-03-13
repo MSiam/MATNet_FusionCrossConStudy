@@ -1,6 +1,6 @@
 ##  Fusion Tyes and Cross Connection Study
 Official Implementation used for training MATNet variants in our CVPR2022 Work.
-We provide the best models on MoCA improving over state of the art performance with 70.6% mean IoU.
+We provide the best models on MoCA with 70.6% mean IoU.
 
 ## MoCA Results
 Our paper uses threshold 0.2 and [SOA](https://charigyang.github.io/motiongroup/) MoCA comparison uses threshold 0.1. We recommend for better reporting on MoCA to compute area under the curve for different thresholds but is out of our current work scope.
