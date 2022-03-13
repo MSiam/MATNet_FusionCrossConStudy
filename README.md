@@ -11,7 +11,7 @@ Our paper uses threshold 0.2 and [SOA](https://charigyang.github.io/motiongroup/
 |---|---|---|---|---|---|---|---|---|---|
 |FusionSeg Modified | 0.2 | No | 42.3 | 47.9 | 43.6 | 35.9 | 24.2 | 9.4 | 39.2|
 |RTNet | 0.2 | No | 60.7 | 67.9 | 62.4 | 53.6 | 43.4 | 23.9 | 50.2 |
-|MATNet reproduced | 0.1 | No | 67.3 | 75.9 | 70.8 | 61.9 | 48.6 | 26.0 | 56.6|
+|MATNet reproduced | 0.2 | No | 67.3 | 75.9 | 70.8 | 61.9 | 48.6 | 26.0 | 56.6|
 |MATNet NoBAR | 0.2 | No | 65.1 | 73.6 | 68.0 | 58.9 | 44.7 | 21.5 |  53.3|
 |MATNet NoYTB | 0.2 | No | 54.7 | 59.9 | 53.5 | 44.0 | 31.0 | 13.4 | 40.3 |
 
