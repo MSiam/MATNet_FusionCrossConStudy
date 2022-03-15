@@ -15,8 +15,7 @@ Our paper uses threshold 0.2 and [SOA](https://charigyang.github.io/motiongroup/
 |MATNet NoBAR | 0.2 | No | 65.1 | 73.6 | 68.0 | 58.9 | 44.7 | 21.5 |  53.3|
 |MATNet NoYTB | 0.2 | No | 54.7 | 59.9 | 53.5 | 44.0 | 31.0 | 13.4 | 40.3 |
 
-* Training reciprocal cross connections (cross connections similar to RTNet) with gated fusion (fusion similar to MATNet), which achieves best performance on MoCA.
-Reciprocal connections (motion-to-appearance and appearance-to-motion) can encourage dynamics if trained with proper fusion and training data without pretraining towards saliency. RTNet convex combination gated fusion has shown to cause accuracy degradation on the other hand.
+* In the main submission we found RTNet with reciprocal cross connections heavily static biased. Our additional experiments here shows that Reciprocal connections (motion-to-appearance and appearance-to-motion) can encourage dynamics if trained with proper fusion and training data without pretraining towards saliency. Training reciprocal cross connections (cross connections similar to RTNet) with gated fusion (fusion similar to MATNet), achieves best performance on MoCA and shows increase in dynamic bias unlike original RTNet. RTNet convex combination gated fusion has shown to cause accuracy degradation on the other hand.
 
 |Method   | Th  | Flip  | mIoU  | SR_0.5  | SR_0.6  | SR_0.7  | SR_0.8  | SR_0.9  | mSR  |
 |---|---|---|---|---|---|---|---|---|---|
@@ -24,6 +23,11 @@ NonRecip CC + Gated Fusion | 0.1 | Yes | 70.2| 79.4 | 74.1 | 64.6 | 49.0 | 23.8|
 NonRecip CC + Gated Fusion | 0.2 | Yes | 68.5| 77.3| 72.2| 63.5| 50.6| 27.0 | 58.1|
 Recip CC + Gated Fusion | 0.2 | Yes | 70.6 | 81.2 | 75.5 | 65.0 | 48.1 | 23.0 | 58.6|
 Recip CC + Gated Fusion | 0.1 | Yes | 67.6 | 77.9 | 70.1 | 59.1 | 40.7 | 16.8 | 52.9|
+
+* Results showing the static dynamic bias for the new Recip CC + Gated Fusion for the final fusion layer w.r.t other models.
+<div align="center">
+<img src="https://github.com/MSiam/MATNet_FusionCrossConStudy/blob/master/figures/static_dynamic_recip.png" width="70%" height="70%"><br><br>
+</div>
 
 ## Installation
 
