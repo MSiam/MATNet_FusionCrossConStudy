@@ -26,7 +26,7 @@ Recip CC + Gated Fusion | 0.1 | Yes | 67.6 | 77.9 | 70.1 | 59.1 | 40.7 | 16.8 | 
 
 * Results showing the static dynamic bias for the new Recip CC + Gated Fusion for the final fusion layer w.r.t other models.
 <div align="center">
-<img src="https://github.com/MSiam/MATNet_FusionCrossConStudy/blob/main/figures/static_dynamic_recip.png" width="70%" height="70%"><br><br>
+<img src="https://github.com/MSiam/MATNet_FusionCrossConStudy/blob/main/figures/static_dynamic_recip.png" width="40%" height="40%"><br><br>
 </div>
 
 ## Installation
