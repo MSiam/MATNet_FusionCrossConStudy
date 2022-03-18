@@ -72,6 +72,7 @@ CUDA_VISIBLE_DEVICES=2,3 python train_MATNet.py -cfg_file CONFIG -gpu_id 0 1 -wa
 ```
 
 ## Test
+* If not ckpt_path provided in the config it uses what is passed, if there is one in the config file it will give it higher priority
 ```
 python test_MATNet.py -ckpt_epoch BEST_EPOCH -ckpt_path CKPT_PATH -result_dir RESULT_DIR
 ```
