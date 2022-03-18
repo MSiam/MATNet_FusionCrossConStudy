@@ -31,7 +31,7 @@ Recip CC + Gated Fusion | 0.1 | Yes | 67.6 | 77.9 | 70.1 | 59.1 | 40.7 | 16.8 | 
 
 * Results showing the mIoU on MoCA when masking top-K units per factor. It aligns with the previous results that fusion layer 2 is dynamic biased, while fusion layers 3,4 and 5 are static biased. In case of sampling random units, we select the (K+5%) of the least units that are biased towards the significant (i.e. dynamic in fusion layer 2 and static in the rest) and then randomly select within these. We do that to ensure random selection especially with higher percentages does not sample some of the units biased towards the corresponding significant factor either static or dyanmic.
 <div align="center">
-<img src="https://github.com/MSiam/MATNet_FusionCrossConStudy/blob/main/figures/static_dynamic_masking_units.png" width="40%" height="40%"><br><br>
+<img src="https://github.com/MSiam/MATNet_FusionCrossConStudy/blob/main/figures/static_dynamic_masking_units.png" width="60%" height="40%"><br><br>
 </div>
 
 ## Installation
